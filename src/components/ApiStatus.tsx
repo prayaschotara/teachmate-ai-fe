@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
+import { publicFetcher } from '../lib/api';
 
 const ApiStatus = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -9,17 +10,8 @@ const ApiStatus = () => {
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const response = await fetch(`${apiUrl}/health`, { 
-          method: 'GET',
-          signal: AbortSignal.timeout(5000) // 5 second timeout
-        });
-        
-        if (response.ok) {
-          setStatus('online');
-        } else {
-          setStatus('offline');
-        }
+        await publicFetcher('/health');
+        setStatus('online');
       } catch (error) {
         console.log('API health check failed:', error);
         setStatus('offline');

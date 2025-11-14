@@ -13,13 +13,16 @@ import {
 } from "lucide-react";
 import { useThemeStore } from "../stores/themeStore";
 import {
-  lessonPlanApi,
+  generateLessonPlan,
+  getLessonPlans,
   type LessonPlan,
   type LessonPlanRequest,
   type SessionDetail,
 } from "../services/lessonPlanApi";
 import {
-  hierarchicalApi,
+  getGrades,
+  getSubjectsByGrade,
+  getChaptersBySubjectAndGrade,
   type Grade,
   type Subject,
   type Chapter,
@@ -48,10 +51,10 @@ const LessonPlanning = () => {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<LessonPlan | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
-  
+
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
+
   // Form state for generating new plan
   const [selectedGradeId, setSelectedGradeId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
@@ -99,7 +102,7 @@ const LessonPlanning = () => {
   const loadLessonPlans = async () => {
     setIsLoadingPlans(true);
     try {
-      const plans = await lessonPlanApi.getLessonPlans(STATIC_TEACHER_ID);
+      const plans = await getLessonPlans(STATIC_TEACHER_ID);
       setLessonPlans(Array.isArray(plans) ? plans : []);
     } catch (error) {
       console.error("Failed to load lesson plans:", error);
@@ -113,7 +116,7 @@ const LessonPlanning = () => {
   const loadGrades = async () => {
     setIsLoadingGrades(true);
     try {
-      const gradesData = await hierarchicalApi.getGrades();
+      const gradesData = await getGrades();
       setGrades(gradesData);
     } catch (error) {
       console.error("Failed to load grades:", error);
@@ -134,7 +137,7 @@ const LessonPlanning = () => {
     const loadSubjects = async () => {
       setIsLoadingSubjects(true);
       try {
-        const subjectsData = await hierarchicalApi.getSubjectsByGrade(selectedGradeId);
+        const subjectsData = await getSubjectsByGrade(selectedGradeId);
         setSubjects(subjectsData);
       } catch (error) {
         console.error("Failed to load subjects:", error);
@@ -158,7 +161,7 @@ const LessonPlanning = () => {
     const loadChapters = async () => {
       setIsLoadingChapters(true);
       try {
-        const chaptersData = await hierarchicalApi.getChaptersBySubjectAndGrade(
+        const chaptersData = await getChaptersBySubjectAndGrade(
           selectedSubjectId,
           selectedGradeId
         );
@@ -204,12 +207,12 @@ const LessonPlanning = () => {
         chapter_id: selectedChapterId,
       };
 
-      const newPlan = await lessonPlanApi.generateLessonPlan(request);
-      
+      const newPlan = await generateLessonPlan(request);
+
       // Close drawer and reset form first
       setIsDrawerOpen(false);
       resetForm();
-      
+
       // Reload lesson plans from server to ensure consistency
       try {
         await loadLessonPlans();
@@ -224,7 +227,7 @@ const LessonPlanning = () => {
         };
         setLessonPlans(prev => [normalizedPlan, ...prev]);
       }
-      
+
       toast.success("Lesson plan generated successfully!");
     } catch (error) {
       console.error("Error generating lesson plan:", error);
@@ -298,7 +301,7 @@ const LessonPlanning = () => {
           >
             ← Back to Plans
           </button>
-          
+
           {/* Plan Header */}
           <div className={`${cardClass} rounded-2xl border shadow-lg p-6`}>
             <div className="flex items-start justify-between mb-4">
@@ -428,7 +431,7 @@ const LessonPlanning = () => {
                     <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} mb-3`}>
                       {plan.subject_name} • Grade {plan.grade_name}
                     </p>
-                    
+
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${isDarkMode ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-700"}`}>
                         {plan.total_sessions} Sessions
@@ -460,8 +463,8 @@ const LessonPlanning = () => {
       {/* Generate Plan Drawer */}
       {isDrawerOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-50" 
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
             onClick={!isGenerating ? () => setIsDrawerOpen(false) : undefined}
             style={{ cursor: isGenerating ? 'not-allowed' : 'pointer' }}
           />
@@ -475,13 +478,12 @@ const LessonPlanning = () => {
                 <button
                   onClick={!isGenerating ? () => setIsDrawerOpen(false) : undefined}
                   disabled={isGenerating}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isGenerating 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : isDarkMode 
-                        ? 'hover:bg-gray-700' 
+                  className={`p-2 rounded-lg transition-colors ${isGenerating
+                      ? 'opacity-50 cursor-not-allowed'
+                      : isDarkMode
+                        ? 'hover:bg-gray-700'
                         : 'hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -711,7 +713,7 @@ const LessonPlanning = () => {
                       <FileText className="w-5 h-5" />
                       <h3 className="font-semibold">Resources</h3>
                     </div>
-                    
+
                     {selectedSession.resources && ((selectedSession.resources.videos?.length ?? 0) > 0 || (selectedSession.resources.simulations?.length ?? 0) > 0) ? (
                       <div className="space-y-4">
                         {/* Videos Section */}

@@ -1,11 +1,10 @@
 import { RouterProvider } from "react-router-dom";
 import { CookiesProvider } from "react-cookie";
 import { Toaster } from "react-hot-toast";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { router } from "./routes/routes";
-
-const queryClient = new QueryClient();
+import { queryClient } from "./lib/queryClient";
 
 function AppContent() {
   const isDarkMode = useDarkMode();

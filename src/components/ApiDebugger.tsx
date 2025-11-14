@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bug, ChevronDown } from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
-import { hierarchicalApi } from '../services/hierarchicalApi';
+import { getGrades, getSubjectsByGrade, getChaptersBySubjectAndGrade } from '../services/hierarchicalApi';
 
 const ApiDebugger = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,21 +16,21 @@ const ApiDebugger = () => {
     try {
       // Test grades API
       setDebugInfo(prev => prev + '1. Testing /api/grade...\n');
-      const grades = await hierarchicalApi.getGrades();
+      const grades = await getGrades();
       setDebugInfo(prev => prev + `   Response: ${JSON.stringify(grades, null, 2)}\n\n`);
       
       if (grades.length > 0) {
         // Test subjects API with first grade
         const firstGradeId = grades[0].id;
         setDebugInfo(prev => prev + `2. Testing /api/subject/grade/${firstGradeId}...\n`);
-        const subjects = await hierarchicalApi.getSubjectsByGrade(firstGradeId);
+        const subjects = await getSubjectsByGrade(firstGradeId);
         setDebugInfo(prev => prev + `   Response: ${JSON.stringify(subjects, null, 2)}\n\n`);
         
         if (subjects.length > 0) {
           // Test chapters API with first subject
           const firstSubjectId = subjects[0].id;
           setDebugInfo(prev => prev + `3. Testing /api/chapter/subject/${firstSubjectId}/grade/${firstGradeId}...\n`);
-          const chapters = await hierarchicalApi.getChaptersBySubjectAndGrade(firstSubjectId, firstGradeId);
+          const chapters = await getChaptersBySubjectAndGrade(firstSubjectId, firstGradeId);
           setDebugInfo(prev => prev + `   Response: ${JSON.stringify(chapters, null, 2)}\n\n`);
         }
       }

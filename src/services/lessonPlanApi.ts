@@ -138,110 +138,98 @@ export interface LessonPlanResponse {
   __v?: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { privateFetcher } from '../lib/api';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-class LessonPlanApiService {
-  private async makeRequest(endpoint: string, data: LessonPlanRequest | SimpleLessonPlanRequest | PreviewLessonPlanRequest): Promise<LessonPlanResponse> {
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+/**
+ * Generate a dynamic lesson plan with flexible input parameters
+ * Can save to database if IDs are provided
+ */
+export async function generateDynamicLessonPlan(request: LessonPlanRequest): Promise<LessonPlanResponse> {
+  return privateFetcher<LessonPlanResponse>('/api/lesson-plan/generate-dynamic', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+/**
+ * Generate a lesson plan preview without saving to database
+ */
+export async function previewLessonPlan(request: PreviewLessonPlanRequest): Promise<LessonPlanResponse> {
+  return privateFetcher<LessonPlanResponse>('/api/lesson-plan/preview', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
 
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
-  }
+/**
+ * Generate lesson plan using simplified endpoint with required fields
+ */
+export async function generateSimpleLessonPlan(request: SimpleLessonPlanRequest): Promise<LessonPlanResponse> {
+  return privateFetcher<LessonPlanResponse>('/api/lesson-plan/generate-simple', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
 
-  /**
-   * Generate a dynamic lesson plan with flexible input parameters
-   * Can save to database if IDs are provided
-   */
-  async generateDynamicLessonPlan(request: LessonPlanRequest): Promise<LessonPlanResponse> {
-    return this.makeRequest('/api/lesson-plan/generate-dynamic', request);
-  }
+/**
+ * Generate lesson plan using the new API endpoint
+ */
+export async function generateLessonPlan(request: LessonPlanRequest): Promise<LessonPlan> {
+  return privateFetcher<LessonPlan>('/api/lesson-plan/generate', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
 
-  /**
-   * Generate a lesson plan preview without saving to database
-   */
-  async previewLessonPlan(request: PreviewLessonPlanRequest): Promise<LessonPlanResponse> {
-    return this.makeRequest('/api/lesson-plan/preview', request);
-  }
+/**
+ * Get all lesson plans for a teacher
+ */
+export async function getLessonPlans(teacherId: string): Promise<LessonPlan[]> {
+  const result = await privateFetcher<{ success?: boolean; data?: LessonPlan[] } | LessonPlan[]>(
+    `/api/lesson-plan/teacher/${teacherId}`
+  );
 
-  /**
-   * Generate lesson plan using simplified endpoint with required fields
-   */
-  async generateSimpleLessonPlan(request: SimpleLessonPlanRequest): Promise<LessonPlanResponse> {
-    return this.makeRequest('/api/lesson-plan/generate-simple', request);
-  }
-
-  /**
-   * Generate lesson plan using the new API endpoint
-   */
-  async generateLessonPlan(request: LessonPlanRequest): Promise<LessonPlan> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/lesson-plan/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get all lesson plans for a teacher
-   */
-  async getLessonPlans(teacherId: string): Promise<LessonPlan[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/lesson-plan/teacher/${teacherId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      // Handle nested response structure
-      if (result.success && Array.isArray(result.data)) {
-        return result.data;
-      } else if (Array.isArray(result)) {
-        return result;
-      } else {
-        console.warn('Unexpected lesson plans response format:', result);
-        return [];
-      }
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+  // Handle nested response structure
+  if (result && typeof result === 'object' && 'success' in result && result.success && Array.isArray(result.data)) {
+    return result.data;
+  } else if (Array.isArray(result)) {
+    return result;
+  } else {
+    console.warn('Unexpected lesson plans response format:', result);
+    return [];
   }
 }
 
-export const lessonPlanApi = new LessonPlanApiService();
+// React Query hooks
+export function useGenerateDynamicLessonPlan() {
+  return useMutation({
+    mutationFn: (request: LessonPlanRequest) => generateDynamicLessonPlan(request),
+  });
+}
+
+export function usePreviewLessonPlan() {
+  return useMutation({
+    mutationFn: (request: PreviewLessonPlanRequest) => previewLessonPlan(request),
+  });
+}
+
+export function useGenerateSimpleLessonPlan() {
+  return useMutation({
+    mutationFn: (request: SimpleLessonPlanRequest) => generateSimpleLessonPlan(request),
+  });
+}
+
+export function useGenerateLessonPlan() {
+  return useMutation({
+    mutationFn: (request: LessonPlanRequest) => generateLessonPlan(request),
+  });
+}
+
+export function useLessonPlans(teacherId: string | null) {
+  return useQuery({
+    queryKey: ['lessonPlans', teacherId],
+    queryFn: () => getLessonPlans(teacherId!),
+    enabled: !!teacherId,
+  });
+}
