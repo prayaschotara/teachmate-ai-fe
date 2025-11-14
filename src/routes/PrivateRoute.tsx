@@ -1,7 +1,6 @@
 import React from "react";
-import { Navigate } from "react-router";
-import { useAuthStore } from "../store/authStore";
-import { ROLE } from "../utils/constant";
+import { Navigate } from "react-router-dom";
+import { useAuthStore } from "../stores/authStore";
 import { ROUTES } from "./routes.enum";
 
 interface PrivateRouteProps {
@@ -9,20 +8,10 @@ interface PrivateRouteProps {
 }
 
 export default function PrivateRoute({ children }: PrivateRouteProps) {
-  const { user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} replace />;
-  }
-
-  if (
-    user &&
-    user.role === ROLE.CREATOR &&
-    user?.oppVerification &&
-    Object.keys(user?.oppVerification)?.length &&
-    Object.values(user?.oppVerification)?.some((item) => item === false)
-  ) {
-    return <Navigate to={ROUTES.CREATOR_VERIFICATION} replace />;
   }
 
   return <>{children}</>;

@@ -1,7 +1,6 @@
 import React from "react";
-import { Navigate } from "react-router";
-import { ROLE } from "../utils/constant";
-import { useAuthStore } from "../store/authStore";
+import { Navigate } from "react-router-dom";
+import { useAuthStore } from "../stores/authStore";
 import { ROUTES } from "./routes.enum";
 
 interface PublicRouteProps {
@@ -9,10 +8,10 @@ interface PublicRouteProps {
 }
 
 export default function PublicRoute({ children }: PublicRouteProps) {
-  const user = useAuthStore((state) => state.user);
+  const { isAuthenticated } = useAuthStore();
 
-  if (user && (user.role === ROLE.USER || user.role === ROLE.CREATOR)) {
-    return <Navigate to={ROUTES.HOME} replace />;
+  if (isAuthenticated) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
   return <>{children}</>;

@@ -1,33 +1,35 @@
-// app.tsx
-
-import { RouterProvider } from "react-router";
+import { RouterProvider } from "react-router-dom";
 import { CookiesProvider } from "react-cookie";
 import { Toaster } from "react-hot-toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { useDarkMode } from "./hooks/useDarkMode";
 import { router } from "./routes/routes";
 
 const queryClient = new QueryClient();
 
-export default function App() {
+function AppContent() {
+  const isDarkMode = useDarkMode();
+
   return (
-    <ThemeProvider>
-      <CookiesProvider>
-        <QueryClientProvider client={queryClient}>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              className:
-                "bg-white text-black dark:bg-gray-800 dark:text-white px-4 py-3 rounded-md shadow-md text-sm font-medium",
-              style: {
-                padding: "12px 16px",
-              },
-            }}
-          />
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </CookiesProvider>
-    </ThemeProvider>
+    <CookiesProvider>
+      <QueryClientProvider client={queryClient}>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: isDarkMode ? '#374151' : '#fff',
+              color: isDarkMode ? '#fff' : '#374151',
+              border: isDarkMode ? '1px solid #4B5563' : '1px solid #E5E7EB',
+            },
+          }}
+        />
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </CookiesProvider>
   );
+}
+
+export default function App() {
+  return <AppContent />;
 }
