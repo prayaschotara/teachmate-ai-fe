@@ -5,7 +5,13 @@ import { useThemeStore } from "../../stores/themeStore";
 import { useAuthStore } from "../../stores/authStore";
 import toast from "react-hot-toast";
 
-const Header = () => {
+interface HeaderProps {
+  onSidebarToggle?: () => void;
+}
+
+const Header = ({ onSidebarToggle }: HeaderProps) => {
+  // Suppress unused parameter warning - this prop is for future use
+  void onSidebarToggle;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
 

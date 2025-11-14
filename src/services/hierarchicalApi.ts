@@ -79,7 +79,7 @@ export interface Chapter {
   description?: string;
   subjectId: string;
   gradeId: string;
-  chapterNumber?: number;
+  chapter_number?: number;
 }
 
 class HierarchicalApiService {
@@ -111,15 +111,12 @@ class HierarchicalApiService {
     try {
       const response = await this.makeRequest<{ success: boolean; data: GradeApiResponse[] }>('/api/grade');
       
-      
       if (response.success && Array.isArray(response.data)) {
         // Map API response to frontend interface
-        const mappedGrades = response.data.map(grade => ({
+        return response.data.map(grade => ({
           id: grade._id,
           name: grade.grade_name,
         }));
-        
-        return mappedGrades;
       } else {
         console.warn('Unexpected grades response format:', response);
         return [];
@@ -168,7 +165,7 @@ class HierarchicalApiService {
           name: chapter.chapter_name,
           subjectId: chapter.subject_id,
           gradeId: chapter.grade_id,
-          chapterNumber: parseInt(chapter.chapter_number),
+          chapter_number: parseInt(chapter.chapter_number),
         }));
       } else {
         console.warn('Unexpected chapters response format:', response);

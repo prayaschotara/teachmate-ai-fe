@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bug, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bug, ChevronDown } from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
 import { hierarchicalApi } from '../services/hierarchicalApi';
 
