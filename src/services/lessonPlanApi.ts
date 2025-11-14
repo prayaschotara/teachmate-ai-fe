@@ -70,6 +70,8 @@ export interface SessionDetail {
   assessment: unknown[];
   is_completed?: boolean;
   completed_at?: string;
+  has_assessment?: boolean;
+  assessment_id?: string;
 }
 
 export interface RecommendedVideo {
@@ -228,15 +230,22 @@ export function useGenerateLessonPlan() {
   });
 }
 
+export interface AssessmentConfig {
+  opens_on: string;
+  due_date: string;
+  duration: number;
+  class_id: string;
+}
+
 /**
  * Mark a session as complete
  */
-export async function markSessionComplete(lessonPlanId: string, sessionNumber: number, classId: string): Promise<{ success: boolean; message: string }> {
+export async function markSessionComplete(lessonPlanId: string, sessionNumber: number): Promise<{ success: boolean; message: string }> {
   return privateFetcher<{ success: boolean; message: string }>(`/api/lesson-plan/${lessonPlanId}/session/${sessionNumber}/complete`, {
     method: 'PATCH',
     body: JSON.stringify({
       assessment_config: {
-        class_id:"6916cf2bf1751850d0885bb3"
+        class_id: "6916cf2bf1751850d0885bb3"
       }
     }),
   });
@@ -244,13 +253,19 @@ export async function markSessionComplete(lessonPlanId: string, sessionNumber: n
 
 /**
  * Create assessment for a completed session
- * Uses the trigger-assessment endpoint with session number
  */
-export async function createSessionAssessment(lessonPlanId: string, sessionNumber: number): Promise<{ success: boolean; message: string; assessment_id?: string }> {
-  return privateFetcher<{ success: boolean; message: string; assessment_id?: string }>(`/api/lesson-plan/${lessonPlanId}/trigger-assessment`, {
-    method: 'POST',
-    body: JSON.stringify({ sessionNumber }),
-  });
+export async function createSessionAssessment(
+  lessonPlanId: string, 
+  sessionNumber: number, 
+  config: AssessmentConfig
+): Promise<{ success: boolean; message: string; assessment_id?: string }> {
+  return privateFetcher<{ success: boolean; message: string; assessment_id?: string }>(
+    `/api/lesson-plan/${lessonPlanId}/session/${sessionNumber}/create-assessment`, 
+    {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }
+  );
 }
 
 export function useLessonPlans(teacherId: string | null) {
@@ -270,7 +285,7 @@ export function useMarkSessionComplete() {
 
 export function useCreateSessionAssessment() {
   return useMutation({
-    mutationFn: ({ lessonPlanId, sessionNumber }: { lessonPlanId: string; sessionNumber: number }) => 
-      createSessionAssessment(lessonPlanId, sessionNumber),
+    mutationFn: ({ lessonPlanId, sessionNumber, config }: { lessonPlanId: string; sessionNumber: number; config: AssessmentConfig }) => 
+      createSessionAssessment(lessonPlanId, sessionNumber, config),
   });
 }

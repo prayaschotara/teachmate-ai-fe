@@ -10,7 +10,6 @@ interface HeaderProps {
 const Header = ({ activeTab, setActiveTab, isDarkMode, setIsDarkMode }: HeaderProps) => {
   const tabs = [
     { id: 'lesson-planning', label: 'Lesson Planning' },
-    { id: 'content-library', label: 'Content Library' },
     { id: 'assessments', label: 'Assessments' },
     { id: 'student-progress', label: 'Student Progress' },
     { id: 'assistant-chat', label: 'Assistant Chat' },

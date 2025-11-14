@@ -3,11 +3,29 @@ import { persist } from 'zustand/middleware';
 import { login } from '../services/authApi';
 import { setAuthToken, clearAuthToken } from '../lib/api';
 
+interface Class {
+  _id: string;
+  class_name: string;
+  class_strength: number;
+  grade_id: string;
+  grade_name: string;
+}
+
 interface User {
   id: string;
   name: string;
   email: string;
   role: 'teacher' | 'student' | 'parent';
+  classes?: Class[];
+}
+
+interface ApiUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: string;
+  classes?: Class[];
 }
 
 interface AuthState {
@@ -28,11 +46,13 @@ export const useAuthStore = create<AuthState>()(
           const response = await login(email, password);
 
           if (response.success && response.data?.user) {
+            const apiUser = response.data.user as ApiUser;
             const user: User = {
-              id: response.data.user.id,
-              name: response.data.user.name,
-              email: response.data.user.email,
-              role: response.data.user.role as User['role'],
+              id: apiUser._id || apiUser.id || '',
+              name: apiUser.name,
+              email: apiUser.email,
+              classes: apiUser.classes || [],
+              role: apiUser.role as User['role'],
             };
 
             // Store token in cookies

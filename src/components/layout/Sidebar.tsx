@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Calendar,
-  BookOpen,
   ClipboardList,
   TrendingUp,
   MessageCircle,
@@ -28,11 +27,6 @@ const navigationItems = [
     label: 'Lesson Planning',
     path: ROUTES.LESSON_PLANNING,
     icon: Calendar,
-  },
-  {
-    label: 'Content Library',
-    path: ROUTES.CONTENT_LIBRARY,
-    icon: BookOpen,
   },
   {
     label: 'Assessments',

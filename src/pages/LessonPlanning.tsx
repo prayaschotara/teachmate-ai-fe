@@ -32,8 +32,10 @@ import {
   type Chapter,
 } from "../services/hierarchicalApi";
 import toast from "react-hot-toast";
+import { useAuthStore } from "../stores/authStore";
 
-const STATIC_TEACHER_ID = "6916d6067d210f87250364e9";
+const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+const TEACHER_ID = authStore.state.user.id
 
 const LessonPlanning = () => {
   // Helper function to safely format dates
@@ -83,7 +85,18 @@ const LessonPlanning = () => {
   // Session modal state
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
 
+  // Assessment modal state
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [selectedSessionForAssessment, setSelectedSessionForAssessment] = useState<number | null>(null);
+  const [assessmentConfig, setAssessmentConfig] = useState({
+    opens_on: '',
+    due_date: '',
+    duration: 60,
+    class_id: ''
+  });
+
   const { isDarkMode } = useThemeStore();
+  const { user } = useAuthStore();
 
   // Load lesson plans on component mount
   useEffect(() => {
@@ -108,7 +121,7 @@ const LessonPlanning = () => {
   const loadLessonPlans = async () => {
     setIsLoadingPlans(true);
     try {
-      const plans = await getLessonPlans(STATIC_TEACHER_ID);
+      const plans = await getLessonPlans(TEACHER_ID);
       setLessonPlans(Array.isArray(plans) ? plans : []);
     } catch (error) {
       console.error("Failed to load lesson plans:", error);
@@ -208,7 +221,7 @@ const LessonPlanning = () => {
         session_duration: parseInt(sessionDuration),
         chapter_number: selectedChapter.chapter_number || 101,
         subject_id: selectedSubjectId,
-        teacher_id: STATIC_TEACHER_ID,
+        teacher_id: TEACHER_ID,
         grade_id: selectedGradeId,
         chapter_id: selectedChapterId,
       };
@@ -290,7 +303,7 @@ const LessonPlanning = () => {
 
       // Also update the lesson plans list
       setLessonPlans(prev => prev.map(plan => 
-        plan._id.$oid === selectedPlan._id.$oid 
+        plan._id === selectedPlan._id
           ? {
               ...plan,
               session_details: plan.session_details.map(session => 
@@ -311,18 +324,94 @@ const LessonPlanning = () => {
     }
   };
 
-  const handleCreateAssessment = async (sessionNumber: number) => {
-    if (!selectedPlan) return;
+  const handleOpenAssessmentModal = (sessionNumber: number) => {
+    setSelectedSessionForAssessment(sessionNumber);
+    // Set default dates
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    // Set default class_id to first class if available
+    const defaultClassId = user?.classes && user.classes.length > 0 ? user.classes[0]._id : '';
+    
+    setAssessmentConfig({
+      opens_on: tomorrow.toISOString().slice(0, 16),
+      due_date: nextWeek.toISOString().slice(0, 16),
+      duration: 60,
+      class_id: defaultClassId
+    });
+    setShowAssessmentModal(true);
+  };
 
-    setCreatingAssessment(sessionNumber);
+  const handleCreateAssessment = async () => {
+    if (!selectedPlan || selectedSessionForAssessment === null) return;
+
+    // Validate required fields
+    if (!assessmentConfig.class_id) {
+      toast.error('Please select a class');
+      return;
+    }
+
+    // Validate dates
+    const opensOn = new Date(assessmentConfig.opens_on);
+    const dueDate = new Date(assessmentConfig.due_date);
+    
+    if (dueDate <= opensOn) {
+      toast.error('Due date must be after opening date');
+      return;
+    }
+
+    setCreatingAssessment(selectedSessionForAssessment);
     try {
-      const result = await createSessionAssessment(selectedPlan._id.$oid, sessionNumber);
+      const config = {
+        opens_on: new Date(assessmentConfig.opens_on).toISOString(),
+        due_date: new Date(assessmentConfig.due_date).toISOString(),
+        duration: assessmentConfig.duration,
+        class_id: assessmentConfig.class_id
+      };
+
+      const result = await createSessionAssessment(
+        selectedPlan._id, 
+        selectedSessionForAssessment,
+        config
+      );
       
       if (result.success) {
-        toast.success(`Assessment created for Session ${sessionNumber}!`);
+        // Update the local state to reflect the assessment creation
+        setSelectedPlan(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            session_details: prev.session_details.map(session => 
+              session.session_number === selectedSessionForAssessment 
+                ? { ...session, has_assessment: true, assessment_id: result.assessment_id }
+                : session
+            )
+          };
+        });
+
+        // Also update the lesson plans list
+        setLessonPlans(prev => prev.map(plan => 
+          plan._id === selectedPlan._id
+            ? {
+                ...plan,
+                session_details: plan.session_details.map(session => 
+                  session.session_number === selectedSessionForAssessment 
+                    ? { ...session, has_assessment: true, assessment_id: result.assessment_id }
+                    : session
+                )
+              }
+            : plan
+        ));
+
+        toast.success(`Assessment created for Session ${selectedSessionForAssessment}!`);
         if (result.assessment_id) {
           toast.success(`Assessment ID: ${result.assessment_id}`);
         }
+        setShowAssessmentModal(false);
+        setSelectedSessionForAssessment(null);
       } else {
         toast.error(result.message || 'Failed to create assessment');
       }
@@ -532,11 +621,18 @@ const LessonPlanning = () => {
                         </>
                       )}
                     </button>
+                  ) : session.has_assessment ? (
+                    <div className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg ${
+                      isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <FileCheck className="w-3 h-3" />
+                      Assessment Created
+                    </div>
                   ) : (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleCreateAssessment(session.session_number);
+                        handleOpenAssessmentModal(session.session_number);
                       }}
                       disabled={creatingAssessment === session.session_number}
                       className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
@@ -555,7 +651,7 @@ const LessonPlanning = () => {
                       ) : (
                         <>
                           <FileCheck className="w-3 h-3" />
-                          Create Assessment
+                          Generate Assessment
                         </>
                       )}
                     </button>
@@ -595,7 +691,7 @@ const LessonPlanning = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {lessonPlans.map((plan) => (
                 <div
-                  key={plan._id.$oid}
+                  key={plan._id}
                   onClick={() => setSelectedPlan(plan)}
                   className={`${cardClass} rounded-xl border shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105`}
                 >
@@ -1025,6 +1121,134 @@ const LessonPlanning = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assessment Configuration Modal */}
+      {showAssessmentModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => !creatingAssessment && setShowAssessmentModal(false)} />
+            <div className={`relative ${cardClass} rounded-2xl shadow-2xl max-w-md w-full`}>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <h2 className={`text-xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                    Create Assessment
+                  </h2>
+                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    Session {selectedSessionForAssessment}
+                  </p>
+                </div>
+                <button
+                  onClick={() => !creatingAssessment && setShowAssessmentModal(false)}
+                  disabled={creatingAssessment !== null}
+                  className={`p-2 rounded-lg ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"} transition-colors ${creatingAssessment !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-4">
+                {/* Opens On */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Opens On
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={assessmentConfig.opens_on}
+                    onChange={(e) => setAssessmentConfig({ ...assessmentConfig, opens_on: e.target.value })}
+                    disabled={creatingAssessment !== null}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+
+                {/* Due Date */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Due Date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={assessmentConfig.due_date}
+                    onChange={(e) => setAssessmentConfig({ ...assessmentConfig, due_date: e.target.value })}
+                    disabled={creatingAssessment !== null}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+
+                {/* Duration */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="15"
+                    max="180"
+                    value={assessmentConfig.duration}
+                    onChange={(e) => setAssessmentConfig({ ...assessmentConfig, duration: parseInt(e.target.value) || 60 })}
+                    disabled={creatingAssessment !== null}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+
+                {/* Class Selection */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Class *
+                  </label>
+                  <select
+                    value={assessmentConfig.class_id}
+                    onChange={(e) => setAssessmentConfig({ ...assessmentConfig, class_id: e.target.value })}
+                    disabled={creatingAssessment !== null}
+                    className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  >
+                    <option value="">Select class...</option>
+                    {user?.classes?.map((classItem) => (
+                      <option key={classItem._id} value={classItem._id}>
+                        {classItem.class_name} - {classItem.grade_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowAssessmentModal(false)}
+                  disabled={creatingAssessment !== null}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                  } ${creatingAssessment !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateAssessment}
+                  disabled={creatingAssessment !== null || !assessmentConfig.opens_on || !assessmentConfig.due_date || !assessmentConfig.class_id}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                >
+                  {creatingAssessment !== null ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck className="w-5 h-5" />
+                      Create Assessment
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
