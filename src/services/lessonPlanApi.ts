@@ -68,6 +68,8 @@ export interface SessionDetail {
   teaching_flow: TeachingFlow[];
   resources: SessionResources | null;
   assessment: unknown[];
+  is_completed?: boolean;
+  completed_at?: string;
 }
 
 export interface RecommendedVideo {
@@ -226,10 +228,49 @@ export function useGenerateLessonPlan() {
   });
 }
 
+/**
+ * Mark a session as complete
+ */
+export async function markSessionComplete(lessonPlanId: string, sessionNumber: number, classId: string): Promise<{ success: boolean; message: string }> {
+  return privateFetcher<{ success: boolean; message: string }>(`/api/lesson-plan/${lessonPlanId}/session/${sessionNumber}/complete`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      assessment_config: {
+        class_id:"6916cf2bf1751850d0885bb3"
+      }
+    }),
+  });
+}
+
+/**
+ * Create assessment for a completed session
+ * Uses the trigger-assessment endpoint with session number
+ */
+export async function createSessionAssessment(lessonPlanId: string, sessionNumber: number): Promise<{ success: boolean; message: string; assessment_id?: string }> {
+  return privateFetcher<{ success: boolean; message: string; assessment_id?: string }>(`/api/lesson-plan/${lessonPlanId}/trigger-assessment`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionNumber }),
+  });
+}
+
 export function useLessonPlans(teacherId: string | null) {
   return useQuery({
     queryKey: ['lessonPlans', teacherId],
     queryFn: () => getLessonPlans(teacherId!),
     enabled: !!teacherId,
+  });
+}
+
+export function useMarkSessionComplete() {
+  return useMutation({
+    mutationFn: ({ lessonPlanId, sessionNumber }: { lessonPlanId: string; sessionNumber: number }) => 
+      markSessionComplete(lessonPlanId, sessionNumber),
+  });
+}
+
+export function useCreateSessionAssessment() {
+  return useMutation({
+    mutationFn: ({ lessonPlanId, sessionNumber }: { lessonPlanId: string; sessionNumber: number }) => 
+      createSessionAssessment(lessonPlanId, sessionNumber),
   });
 }

@@ -76,7 +76,7 @@ export function HierarchicalApiExample() {
             <ul className="space-y-2">
               {chapters?.map((chapter) => (
                 <li key={chapter.id} className="p-2 border rounded">
-                  {chapter.chapterNumber}. {chapter.name}
+                  {chapter.chapter_number}. {chapter.name}
                 </li>
               ))}
             </ul>

@@ -10,11 +10,15 @@ import {
   ChevronRight,
   FileText,
   Calendar,
+  CheckCircle,
+  FileCheck,
 } from "lucide-react";
 import { useThemeStore } from "../stores/themeStore";
 import {
   generateLessonPlan,
   getLessonPlans,
+  markSessionComplete,
+  createSessionAssessment,
   type LessonPlan,
   type LessonPlanRequest,
   type SessionDetail,
@@ -73,6 +77,8 @@ const LessonPlanning = () => {
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [completingSession, setCompletingSession] = useState<number | null>(null);
+  const [creatingAssessment, setCreatingAssessment] = useState<number | null>(null);
 
   // Session modal state
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -261,6 +267,85 @@ const LessonPlanning = () => {
     setExpandedResources(newExpanded);
   };
 
+  const handleMarkSessionComplete = async (sessionNumber: number) => {
+    if (!selectedPlan) return;
+
+    setCompletingSession(sessionNumber);
+    try {
+      console.log("session", selectedPlan)
+      await markSessionComplete(selectedPlan._id, sessionNumber);
+      
+      // Update the local state to reflect the completion
+      setSelectedPlan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          session_details: prev.session_details.map(session => 
+            session.session_number === sessionNumber 
+              ? { ...session, is_completed: true, completed_at: new Date().toISOString() }
+              : session
+          )
+        };
+      });
+
+      // Also update the lesson plans list
+      setLessonPlans(prev => prev.map(plan => 
+        plan._id.$oid === selectedPlan._id.$oid 
+          ? {
+              ...plan,
+              session_details: plan.session_details.map(session => 
+                session.session_number === sessionNumber 
+                  ? { ...session, is_completed: true, completed_at: new Date().toISOString() }
+                  : session
+              )
+            }
+          : plan
+      ));
+
+      toast.success(`Session ${sessionNumber} marked as complete!`);
+    } catch (error) {
+      console.error('Error marking session complete:', error);
+      toast.error('Failed to mark session as complete');
+    } finally {
+      setCompletingSession(null);
+    }
+  };
+
+  const handleCreateAssessment = async (sessionNumber: number) => {
+    if (!selectedPlan) return;
+
+    setCreatingAssessment(sessionNumber);
+    try {
+      const result = await createSessionAssessment(selectedPlan._id.$oid, sessionNumber);
+      
+      if (result.success) {
+        toast.success(`Assessment created for Session ${sessionNumber}!`);
+        if (result.assessment_id) {
+          toast.success(`Assessment ID: ${result.assessment_id}`);
+        }
+      } else {
+        toast.error(result.message || 'Failed to create assessment');
+      }
+    } catch (error) {
+      console.error('Error creating assessment:', error);
+      toast.error('Failed to create assessment');
+    } finally {
+      setCreatingAssessment(null);
+    }
+  };
+
+  // Helper function to extract YouTube video ID from URL
+  const getYouTubeVideoId = (url: string): string | null => {
+    const regex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
+  // Helper function to check if URL is a YouTube video
+  const isYouTubeUrl = (url: string): boolean => {
+    return url.includes('youtube.com') || url.includes('youtu.be');
+  };
+
   const cardClass = isDarkMode
     ? "bg-gray-800 border-gray-700"
     : "bg-white border-gray-200";
@@ -343,49 +428,139 @@ const LessonPlanning = () => {
             {selectedPlan.session_details.map((session, index) => (
               <div
                 key={index}
-                onClick={() => handleSessionClick(session)}
-                className={`${cardClass} rounded-xl border shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105`}
+                className={`${cardClass} rounded-xl border shadow-lg p-4 transition-all duration-200 ${
+                  session.is_completed 
+                    ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' 
+                    : ''
+                }`}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-8 h-8 rounded-full ${isDarkMode ? "bg-gradient-to-br from-blue-600 to-cyan-600" : "bg-gradient-to-br from-blue-500 to-cyan-500"} flex items-center justify-center text-white font-bold text-sm`}>
-                    {session.session_number}
-                  </div>
-                  <div>
-                    <h3 className={`font-semibold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                      Session {session.session_number}
-                    </h3>
-                    <div className={`flex items-center gap-1 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                      <Clock className="w-3 h-3" />
-                      {selectedPlan.session_duration} minutes
+                {/* Session Header */}
+                <div 
+                  onClick={() => handleSessionClick(session)}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-8 h-8 rounded-full ${
+                      session.is_completed 
+                        ? "bg-gradient-to-br from-green-600 to-green-700" 
+                        : isDarkMode 
+                        ? "bg-gradient-to-br from-blue-600 to-cyan-600" 
+                        : "bg-gradient-to-br from-blue-500 to-cyan-500"
+                    } flex items-center justify-center text-white font-bold text-sm relative`}>
+                      {session.is_completed ? (
+                        <CheckCircle className="w-4 h-4" />
+                      ) : (
+                        session.session_number
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-semibold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          Session {session.session_number}
+                        </h3>
+                        {session.is_completed && (
+                          <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 rounded-full">
+                            Completed
+                          </span>
+                        )}
+                      </div>
+                      <div className={`flex items-center gap-1 text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                        <Clock className="w-3 h-3" />
+                        {selectedPlan.session_duration} minutes
+                        {session.completed_at && (
+                          <span className="ml-2">
+                            • Completed: {new Date(session.completed_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Topics Preview */}
+                  {session.topics_covered && session.topics_covered.length > 0 && (
+                    <div className="mb-3">
+                      <h4 className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                        Topics
+                      </h4>
+                      <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"} line-clamp-2`}>
+                        {session.topics_covered.slice(0, 2).join(", ")}
+                        {session.topics_covered.length > 2 && "..."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Objectives Preview */}
+                  {session.learning_objectives && session.learning_objectives.length > 0 && (
+                    <div className="mb-3">
+                      <h4 className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                        Objectives
+                      </h4>
+                      <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"} line-clamp-2`}>
+                        {session.learning_objectives[0]}
+                        {session.learning_objectives.length > 1 && "..."}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Topics Preview */}
-                {session.topics_covered && session.topics_covered.length > 0 && (
-                  <div className="mb-3">
-                    <h4 className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                      Topics
-                    </h4>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"} line-clamp-2`}>
-                      {session.topics_covered.slice(0, 2).join(", ")}
-                      {session.topics_covered.length > 2 && "..."}
-                    </p>
-                  </div>
-                )}
-
-                {/* Objectives Preview */}
-                {session.learning_objectives && session.learning_objectives.length > 0 && (
-                  <div>
-                    <h4 className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                      Objectives
-                    </h4>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-600"} line-clamp-2`}>
-                      {session.learning_objectives[0]}
-                      {session.learning_objectives.length > 1 && "..."}
-                    </p>
-                  </div>
-                )}
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  {!session.is_completed ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkSessionComplete(session.session_number);
+                      }}
+                      disabled={completingSession === session.session_number}
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                        completingSession === session.session_number
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : isDarkMode
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-green-100 hover:bg-green-200 text-green-700'
+                      }`}
+                    >
+                      {completingSession === session.session_number ? (
+                        <>
+                          <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-3 h-3" />
+                          Mark Complete
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCreateAssessment(session.session_number);
+                      }}
+                      disabled={creatingAssessment === session.session_number}
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                        creatingAssessment === session.session_number
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : isDarkMode
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
+                      }`}
+                    >
+                      {creatingAssessment === session.session_number ? (
+                        <>
+                          <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <FileCheck className="w-3 h-3" />
+                          Create Assessment
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -745,18 +920,43 @@ const LessonPlanning = () => {
                                   </button>
                                   {expandedResources.has(`video-${i}`) && (
                                     <div className={`p-3 border-t ${isDarkMode ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-gray-50"}`}>
-                                      <div className="space-y-2">
+                                      <div className="space-y-3">
                                         <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                           <strong>Topic:</strong> {video.topic}
                                         </p>
-                                        <a
-                                          href={video.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className={`inline-flex items-center gap-2 text-sm px-3 py-1 rounded ${isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-700"} transition-colors`}
-                                        >
-                                          🔗 Watch Video
-                                        </a>
+                                        
+                                        {/* YouTube Iframe or External Link */}
+                                        {isYouTubeUrl(video.url) ? (
+                                          <div className="space-y-2">
+                                            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                                              <iframe
+                                                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                                src={`https://www.youtube.com/embed/${getYouTubeVideoId(video.url)}?rel=0&modestbranding=1`}
+                                                title={video.title}
+                                                frameBorder="0"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                              />
+                                            </div>
+                                            <a
+                                              href={video.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-200 hover:bg-gray-300 text-gray-700"} transition-colors`}
+                                            >
+                                              🔗 Open on YouTube
+                                            </a>
+                                          </div>
+                                        ) : (
+                                          <a
+                                            href={video.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`inline-flex items-center gap-2 text-sm px-3 py-1 rounded ${isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-700"} transition-colors`}
+                                          >
+                                            🎥 Watch Video
+                                          </a>
+                                        )}
                                       </div>
                                     </div>
                                   )}
