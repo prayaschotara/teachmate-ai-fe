@@ -7,6 +7,7 @@ import {
   useCreateAssessment,
   useDeleteAssessment,
   type CreateAssessmentRequest,
+  getIdString,
 } from '../services/assessmentApi';
 import {
   getGrades,
@@ -328,7 +329,7 @@ const Assessments = () => {
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {assessments.map((assessment) => (
-              <div key={assessment._id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+              <div key={getIdString(assessment._id)} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -358,7 +359,7 @@ const Assessments = () => {
                       <Edit className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={() => handleDeleteAssessment(assessment._id)}
+                      onClick={() => handleDeleteAssessment(getIdString(assessment._id))}
                       disabled={deleteAssessmentMutation.isPending}
                       className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-600 text-red-400' : 'hover:bg-gray-100 text-red-600'} transition-colors disabled:opacity-50`}
                     >

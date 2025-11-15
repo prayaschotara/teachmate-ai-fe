@@ -22,6 +22,7 @@ import {
   type LessonPlan,
   type LessonPlanRequest,
   type SessionDetail,
+  getIdString,
 } from "../services/lessonPlanApi";
 import {
   getGrades,
@@ -286,7 +287,7 @@ const LessonPlanning = () => {
     setCompletingSession(sessionNumber);
     try {
       console.log("session", selectedPlan)
-      await markSessionComplete(selectedPlan._id, sessionNumber);
+      await markSessionComplete(getIdString(selectedPlan._id), sessionNumber);
       
       // Update the local state to reflect the completion
       setSelectedPlan(prev => {
@@ -373,7 +374,7 @@ const LessonPlanning = () => {
       };
 
       const result = await createSessionAssessment(
-        selectedPlan._id, 
+        getIdString(selectedPlan._id), 
         selectedSessionForAssessment,
         config
       );
@@ -691,7 +692,7 @@ const LessonPlanning = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {lessonPlans.map((plan) => (
                 <div
-                  key={plan._id}
+                  key={getIdString(plan._id)}
                   onClick={() => setSelectedPlan(plan)}
                   className={`${cardClass} rounded-xl border shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105`}
                 >

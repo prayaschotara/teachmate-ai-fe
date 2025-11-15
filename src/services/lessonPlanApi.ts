@@ -84,13 +84,13 @@ export interface RecommendedVideo {
 }
 
 export interface LessonPlan {
-  _id: { $oid: string };
-  teacher_id: { $oid: string };
-  subject_id: { $oid: string };
+  _id: string | { $oid: string };
+  teacher_id: string | { $oid: string };
+  subject_id: string | { $oid: string };
   subject_name: string;
-  grade_id: { $oid: string };
+  grade_id: string | { $oid: string };
   grade_name: string;
-  chapter_id: { $oid: string };
+  chapter_id: string | { $oid: string };
   chapter_name: string;
   chapter_number: number;
   total_sessions: number;
@@ -102,9 +102,21 @@ export interface LessonPlan {
   learning_outcomes: string[];
   status: string;
   isActive: boolean;
-  createdAt: { $date: string };
-  updatedAt: { $date: string };
+  createdAt: string | { $date: string };
+  updatedAt: string | { $date: string };
   __v: number;
+}
+
+// Helper function to extract string from MongoDB ObjectId
+export function getIdString(id: string | { $oid: string } | undefined): string {
+  if (!id) return '';
+  return typeof id === 'string' ? id : id.$oid;
+}
+
+// Helper function to extract date string from MongoDB date
+export function getDateString(date: string | { $date: string } | undefined): string {
+  if (!date) return '';
+  return typeof date === 'string' ? date : date.$date;
 }
 
 export interface LessonPlanResponse {
@@ -255,12 +267,12 @@ export async function markSessionComplete(lessonPlanId: string, sessionNumber: n
  * Create assessment for a completed session
  */
 export async function createSessionAssessment(
-  lessonPlanId: string, 
-  sessionNumber: number, 
+  lessonPlanId: string,
+  sessionNumber: number,
   config: AssessmentConfig
 ): Promise<{ success: boolean; message: string; assessment_id?: string }> {
   return privateFetcher<{ success: boolean; message: string; assessment_id?: string }>(
-    `/api/lesson-plan/${lessonPlanId}/session/${sessionNumber}/create-assessment`, 
+    `/api/lesson-plan/${lessonPlanId}/session/${sessionNumber}/create-assessment`,
     {
       method: 'POST',
       body: JSON.stringify(config),
@@ -278,14 +290,14 @@ export function useLessonPlans(teacherId: string | null) {
 
 export function useMarkSessionComplete() {
   return useMutation({
-    mutationFn: ({ lessonPlanId, sessionNumber }: { lessonPlanId: string; sessionNumber: number }) => 
+    mutationFn: ({ lessonPlanId, sessionNumber }: { lessonPlanId: string; sessionNumber: number }) =>
       markSessionComplete(lessonPlanId, sessionNumber),
   });
 }
 
 export function useCreateSessionAssessment() {
   return useMutation({
-    mutationFn: ({ lessonPlanId, sessionNumber, config }: { lessonPlanId: string; sessionNumber: number; config: AssessmentConfig }) => 
+    mutationFn: ({ lessonPlanId, sessionNumber, config }: { lessonPlanId: string; sessionNumber: number; config: AssessmentConfig }) =>
       createSessionAssessment(lessonPlanId, sessionNumber, config),
   });
 }

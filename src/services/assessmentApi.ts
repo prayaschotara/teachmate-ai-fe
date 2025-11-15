@@ -3,24 +3,35 @@
 import { privateFetcher } from '../lib/api';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
+// Helper functions to extract strings from MongoDB objects
+export function getIdString(id: string | { $oid: string } | undefined): string {
+  if (!id) return '';
+  return typeof id === 'string' ? id : id.$oid;
+}
+
+export function getDateString(date: string | { $date: string } | undefined): string {
+  if (!date) return '';
+  return typeof date === 'string' ? date : date.$date;
+}
+
 // Assessment interfaces
 export interface Assessment {
-  _id: { $oid: string };
+  _id: string | { $oid: string };
   title: string;
   subject: string;
   grade: string;
   questions: number;
   duration: number; // in minutes
   status: 'Published' | 'Draft';
-  createdAt: { $date: string };
-  updatedAt: { $date: string };
-  teacher_id: { $oid: string };
-  subject_id?: { $oid: string };
-  grade_id?: { $oid: string };
-  chapter_id?: { $oid: string };
+  createdAt: string | { $date: string };
+  updatedAt: string | { $date: string };
+  teacher_id: string | { $oid: string };
+  subject_id?: string | { $oid: string };
+  grade_id?: string | { $oid: string };
+  chapter_id?: string | { $oid: string };
   opens_on?: string;
   due_date?: string;
-  class_id?: { $oid: string };
+  class_id?: string | { $oid: string };
 }
 
 export interface CreateAssessmentRequest {
@@ -105,7 +116,7 @@ export async function getAssessmentStats(teacherId: string): Promise<AssessmentS
     published: assessments.filter(a => a.status === 'Published').length,
     drafts: assessments.filter(a => a.status === 'Draft').length,
     thisMonth: assessments.filter(a => {
-      const createdDate = new Date(a.createdAt.$date);
+      const createdDate = new Date(getDateString(a.createdAt));
       return createdDate >= thisMonth;
     }).length,
   };
