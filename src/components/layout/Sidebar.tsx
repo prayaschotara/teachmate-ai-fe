@@ -2,9 +2,6 @@ import {
   LayoutDashboard,
   Calendar,
   ClipboardList,
-  TrendingUp,
-  MessageCircle,
-  FileText,
   ChevronLeft,
   Menu,
 } from 'lucide-react';
@@ -46,11 +43,9 @@ const Sidebar = ({ open, onToggle }: SidebarProps) => {
 
   return (
     <div
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] ${
-        open ? 'w-64' : 'w-16'
-      } ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-      } border-r transition-all duration-300 ease-in-out z-40 flex flex-col`}
+      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] ${open ? 'w-64' : 'w-16'
+        } ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-r transition-all duration-300 ease-in-out z-40 flex flex-col`}
     >
       {/* Sidebar Header */}
       <div className={`flex items-center ${open ? 'justify-end' : 'justify-center'} p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -67,25 +62,24 @@ const Sidebar = ({ open, onToggle }: SidebarProps) => {
         {navigationItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
-          
+
           return (
             <div key={item.path} className="relative group">
               <button
                 onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${isActive
                     ? 'bg-blue-600 text-white shadow-lg'
                     : isDarkMode
-                    ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                } ${!open ? 'justify-center' : ''}`}
+                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  } ${!open ? 'justify-center' : ''}`}
               >
                 <Icon className={`w-5 h-5 ${!open ? 'mx-auto' : ''}`} />
                 {open && (
                   <span className="font-medium text-sm">{item.label}</span>
                 )}
               </button>
-              
+
               {/* Tooltip for collapsed state */}
               {!open && (
                 <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
