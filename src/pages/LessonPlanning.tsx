@@ -14,6 +14,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import { useThemeStore } from "../stores/themeStore";
+import { useAuthStore } from "../stores/authStore";
 import {
   generateLessonPlan,
   getLessonPlans,
@@ -35,10 +36,12 @@ import {
   type Class,
 } from "../services/hierarchicalApi";
 import toast from "react-hot-toast";
-const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
-const TEACHER_ID = authStore.state?.user?.id
 
 const LessonPlanning = () => {
+  const { user } = useAuthStore();
+  const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+  const TEACHER_ID = user?.id || authStore.state?.user?.id || '';
+
   // Helper function to safely format dates
   const formatDate = (dateValue: unknown): string => {
     try {
@@ -301,14 +304,14 @@ const LessonPlanning = () => {
     try {
       console.log("session", selectedPlan)
       await markSessionComplete(getIdString(selectedPlan._id), sessionNumber);
-      
+
       // Update the local state to reflect the completion
       setSelectedPlan(prev => {
         if (!prev) return prev;
         return {
           ...prev,
-          session_details: prev.session_details.map(session => 
-            session.session_number === sessionNumber 
+          session_details: prev.session_details.map(session =>
+            session.session_number === sessionNumber
               ? { ...session, is_completed: true, completed_at: new Date().toISOString() }
               : session
           )
@@ -316,16 +319,16 @@ const LessonPlanning = () => {
       });
 
       // Also update the lesson plans list
-      setLessonPlans(prev => prev.map(plan => 
+      setLessonPlans(prev => prev.map(plan =>
         plan._id === selectedPlan._id
           ? {
-              ...plan,
-              session_details: plan.session_details.map(session => 
-                session.session_number === sessionNumber 
-                  ? { ...session, is_completed: true, completed_at: new Date().toISOString() }
-                  : session
-              )
-            }
+            ...plan,
+            session_details: plan.session_details.map(session =>
+              session.session_number === sessionNumber
+                ? { ...session, is_completed: true, completed_at: new Date().toISOString() }
+                : session
+            )
+          }
           : plan
       ));
 
@@ -346,10 +349,10 @@ const LessonPlanning = () => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextWeek = new Date(now);
     nextWeek.setDate(nextWeek.getDate() + 7);
-    
+
     // Use the lesson plan's class_id automatically
     const lessonPlanClassId = getClassId(selectedPlan?.class_id);
-    
+
     setAssessmentConfig({
       opens_on: tomorrow.toISOString().slice(0, 16),
       due_date: nextWeek.toISOString().slice(0, 16),
@@ -366,7 +369,7 @@ const LessonPlanning = () => {
     // Validate dates
     const opensOn = new Date(assessmentConfig.opens_on);
     const dueDate = new Date(assessmentConfig.due_date);
-    
+
     if (dueDate <= opensOn) {
       toast.error('Due date must be after opening date');
       return;
@@ -388,19 +391,19 @@ const LessonPlanning = () => {
       };
 
       const result = await createSessionAssessment(
-        getIdString(selectedPlan._id), 
+        getIdString(selectedPlan._id),
         selectedSessionForAssessment,
         config
       );
-      
+
       if (result.success) {
         // Update the local state to reflect the assessment creation
         setSelectedPlan(prev => {
           if (!prev) return prev;
           return {
             ...prev,
-            session_details: prev.session_details.map(session => 
-              session.session_number === selectedSessionForAssessment 
+            session_details: prev.session_details.map(session =>
+              session.session_number === selectedSessionForAssessment
                 ? { ...session, has_assessment: true, assessment_id: result.assessment_id }
                 : session
             )
@@ -408,16 +411,16 @@ const LessonPlanning = () => {
         });
 
         // Also update the lesson plans list
-        setLessonPlans(prev => prev.map(plan => 
+        setLessonPlans(prev => prev.map(plan =>
           plan._id === selectedPlan._id
             ? {
-                ...plan,
-                session_details: plan.session_details.map(session => 
-                  session.session_number === selectedSessionForAssessment 
-                    ? { ...session, has_assessment: true, assessment_id: result.assessment_id }
-                    : session
-                )
-              }
+              ...plan,
+              session_details: plan.session_details.map(session =>
+                session.session_number === selectedSessionForAssessment
+                  ? { ...session, has_assessment: true, assessment_id: result.assessment_id }
+                  : session
+              )
+            }
             : plan
         ));
 
@@ -538,25 +541,23 @@ const LessonPlanning = () => {
             {selectedPlan.session_details.map((session, index) => (
               <div
                 key={index}
-                className={`${cardClass} rounded-xl border shadow-lg p-4 transition-all duration-200 ${
-                  session.status === "Completed"
-                    ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' 
+                className={`${cardClass} rounded-xl border shadow-lg p-4 transition-all duration-200 ${session.status === "Completed"
+                    ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700'
                     : ''
-                }`}
+                  }`}
               >
                 {/* Session Header */}
-                <div 
+                <div
                   onClick={() => handleSessionClick(session)}
                   className="cursor-pointer hover:opacity-80 transition-opacity"
                 >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-8 h-8 rounded-full ${
-                      session.status === "Completed"
-                        ? "bg-gradient-to-br from-green-600 to-green-700" 
-                        : isDarkMode 
-                        ? "bg-gradient-to-br from-blue-600 to-cyan-600" 
-                        : "bg-gradient-to-br from-blue-500 to-cyan-500"
-                    } flex items-center justify-center text-white font-bold text-sm relative`}>
+                    <div className={`w-8 h-8 rounded-full ${session.status === "Completed"
+                        ? "bg-gradient-to-br from-green-600 to-green-700"
+                        : isDarkMode
+                          ? "bg-gradient-to-br from-blue-600 to-cyan-600"
+                          : "bg-gradient-to-br from-blue-500 to-cyan-500"
+                      } flex items-center justify-center text-white font-bold text-sm relative`}>
                       {session.status === "Completed" ? (
                         <CheckCircle className="w-4 h-4" />
                       ) : (
@@ -622,13 +623,12 @@ const LessonPlanning = () => {
                         handleMarkSessionComplete(session.session_number);
                       }}
                       disabled={completingSession === session.session_number}
-                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                        completingSession === session.session_number
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${completingSession === session.session_number
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           : isDarkMode
-                          ? 'bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-green-100 hover:bg-green-200 text-green-700'
-                      }`}
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-green-100 hover:bg-green-200 text-green-700'
+                        }`}
                     >
                       {completingSession === session.session_number ? (
                         <>
@@ -643,9 +643,8 @@ const LessonPlanning = () => {
                       )}
                     </button>
                   ) : session.assessment.length > 0 ? (
-                    <div className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg ${
-                      isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                    }`}>
+                    <div className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                      }`}>
                       <FileCheck className="w-3 h-3" />
                       Assessment Created
                     </div>
@@ -656,13 +655,12 @@ const LessonPlanning = () => {
                         handleOpenAssessmentModal(session.session_number);
                       }}
                       disabled={creatingAssessment === session.session_number}
-                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                        creatingAssessment === session.session_number
+                      className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${creatingAssessment === session.session_number
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           : isDarkMode
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
-                      }`}
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
+                        }`}
                     >
                       {creatingAssessment === session.session_number ? (
                         <>
@@ -771,10 +769,10 @@ const LessonPlanning = () => {
                   onClick={!isGenerating ? () => setIsDrawerOpen(false) : undefined}
                   disabled={isGenerating}
                   className={`p-2 rounded-lg transition-colors ${isGenerating
-                      ? 'opacity-50 cursor-not-allowed'
-                      : isDarkMode
-                        ? 'hover:bg-gray-700'
-                        : 'hover:bg-gray-100'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : isDarkMode
+                      ? 'hover:bg-gray-700'
+                      : 'hover:bg-gray-100'
                     }`}
                 >
                   <X className="w-5 h-5" />
@@ -1063,7 +1061,7 @@ const LessonPlanning = () => {
                                         <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                           <strong>Topic:</strong> {video.topic}
                                         </p>
-                                        
+
                                         {/* YouTube Iframe or External Link */}
                                         {isYouTubeUrl(video.url) ? (
                                           <div className="space-y-2">
@@ -1257,11 +1255,10 @@ const LessonPlanning = () => {
                 <button
                   onClick={() => setShowAssessmentModal(false)}
                   disabled={creatingAssessment !== null}
-                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                    isDarkMode 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${isDarkMode
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
                       : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                  } ${creatingAssessment !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${creatingAssessment !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   Cancel
                 </button>
