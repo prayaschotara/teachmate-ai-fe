@@ -123,9 +123,6 @@ const Login = () => {
             </button>
           </form>
 
-          <p className={`mt-6 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Demo credentials: any email and password
-          </p>
         </div>
       </div>
     </div>

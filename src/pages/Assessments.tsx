@@ -20,7 +20,7 @@ import {
 import toast from 'react-hot-toast';
 
 const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
-const TEACHER_ID = authStore.state.user.id
+const TEACHER_ID = authStore.state?.user.id
 
 
 const Assessments = () => {
