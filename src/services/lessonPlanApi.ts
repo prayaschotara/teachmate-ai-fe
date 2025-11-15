@@ -12,7 +12,7 @@ export interface LessonPlanRequest {
   subject_id: string;
   grade_id: string;
   chapter_id: string;
-  class_id: string; // Required class selection
+  class_id?: string; // Required class selection
 }
 
 export interface SimpleLessonPlanRequest {
@@ -69,10 +69,10 @@ export interface SessionDetail {
   teaching_flow: TeachingFlow[];
   resources: SessionResources | null;
   assessment: unknown[];
-  is_completed?: boolean;
   completed_at?: string;
   has_assessment?: boolean;
   assessment_id?: string;
+  status?: string;
 }
 
 export interface RecommendedVideo {
@@ -94,6 +94,7 @@ export interface LessonPlan {
   chapter_id:  string ;
   chapter_name: string;
   chapter_number: number;
+  class_id: string | { _id: string; class_name?: string };
   total_sessions: number;
   session_duration: number;
   session_details: SessionDetail[];
@@ -247,7 +248,6 @@ export interface AssessmentConfig {
   opens_on: string;
   due_date: string;
   duration: number;
-  class_id: string;
 }
 
 /**

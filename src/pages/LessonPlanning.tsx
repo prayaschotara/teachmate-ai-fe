@@ -35,8 +35,6 @@ import {
   type Class,
 } from "../services/hierarchicalApi";
 import toast from "react-hot-toast";
-import { useAuthStore } from "../stores/authStore";
-
 const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
 const TEACHER_ID = authStore.state.user.id
 
@@ -100,7 +98,6 @@ const LessonPlanning = () => {
   });
 
   const { isDarkMode } = useThemeStore();
-  const { user } = useAuthStore();
 
   // Load lesson plans on component mount
   useEffect(() => {
@@ -220,10 +217,12 @@ const LessonPlanning = () => {
       const selectedGrade = grades.find((g) => g.id === selectedGradeId);
       const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
       const selectedChapter = chapters.find((c) => c.id === selectedChapterId);
+      const selectedClass = classes.find((c) => c.id === selectedClassId);
 
-      if (!selectedGrade || !selectedSubject || !selectedChapter) {
+      if (!selectedGrade || !selectedSubject || !selectedChapter || !selectedClass) {
         throw new Error("Selected items not found");
       }
+
 
       const request: LessonPlanRequest = {
         subject_name: selectedSubject.name,
@@ -236,7 +235,7 @@ const LessonPlanning = () => {
         teacher_id: TEACHER_ID,
         grade_id: selectedGradeId,
         chapter_id: selectedChapterId,
-        class_id: selectedClassId,
+        class_id: selectedClass.id,
       };
 
       const newPlan = await generateLessonPlan(request);
@@ -348,14 +347,14 @@ const LessonPlanning = () => {
     const nextWeek = new Date(now);
     nextWeek.setDate(nextWeek.getDate() + 7);
     
-    // Set default class_id to first class if available
-    const defaultClassId = user?.classes && user.classes.length > 0 ? user.classes[0]._id : '';
+    // Use the lesson plan's class_id automatically
+    const lessonPlanClassId = getClassId(selectedPlan?.class_id);
     
     setAssessmentConfig({
       opens_on: tomorrow.toISOString().slice(0, 16),
       due_date: nextWeek.toISOString().slice(0, 16),
       duration: 60,
-      class_id: defaultClassId
+      class_id: lessonPlanClassId
     });
     setShowAssessmentModal(true);
   };
@@ -363,12 +362,7 @@ const LessonPlanning = () => {
   const handleCreateAssessment = async () => {
     if (!selectedPlan || selectedSessionForAssessment === null) return;
 
-    // Validate required fields
-    if (!assessmentConfig.class_id) {
-      toast.error('Please select a class');
-      return;
-    }
-
+    console.log("selectedPlan", selectedPlan)
     // Validate dates
     const opensOn = new Date(assessmentConfig.opens_on);
     const dueDate = new Date(assessmentConfig.due_date);
@@ -378,13 +372,19 @@ const LessonPlanning = () => {
       return;
     }
 
+    // Ensure we have the lesson plan's class_id
+    if (!selectedPlan.class_id) {
+      toast.error('Lesson plan does not have a class assigned');
+      return;
+    }
+
     setCreatingAssessment(selectedSessionForAssessment);
     try {
       const config = {
         opens_on: new Date(assessmentConfig.opens_on).toISOString(),
         due_date: new Date(assessmentConfig.due_date).toISOString(),
         duration: assessmentConfig.duration,
-        class_id: assessmentConfig.class_id
+        class_id: getClassId(selectedPlan.class_id)
       };
 
       const result = await createSessionAssessment(
@@ -448,6 +448,12 @@ const LessonPlanning = () => {
   // Helper function to check if URL is a YouTube video
   const isYouTubeUrl = (url: string): boolean => {
     return url.includes('youtube.com') || url.includes('youtu.be');
+  };
+
+  // Helper function to extract class ID from class_id field (handles both string and populated object)
+  const getClassId = (classId: string | { _id: string; class_name?: string } | undefined): string => {
+    if (!classId) return '';
+    return typeof classId === 'string' ? classId : classId._id;
   };
 
   const cardClass = isDarkMode
@@ -533,7 +539,7 @@ const LessonPlanning = () => {
               <div
                 key={index}
                 className={`${cardClass} rounded-xl border shadow-lg p-4 transition-all duration-200 ${
-                  session.is_completed 
+                  session.status === "Completed"
                     ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' 
                     : ''
                 }`}
@@ -545,13 +551,13 @@ const LessonPlanning = () => {
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-8 h-8 rounded-full ${
-                      session.is_completed 
+                      session.status === "Completed"
                         ? "bg-gradient-to-br from-green-600 to-green-700" 
                         : isDarkMode 
                         ? "bg-gradient-to-br from-blue-600 to-cyan-600" 
                         : "bg-gradient-to-br from-blue-500 to-cyan-500"
                     } flex items-center justify-center text-white font-bold text-sm relative`}>
-                      {session.is_completed ? (
+                      {session.status === "Completed" ? (
                         <CheckCircle className="w-4 h-4" />
                       ) : (
                         session.session_number
@@ -562,7 +568,7 @@ const LessonPlanning = () => {
                         <h3 className={`font-semibold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                           Session {session.session_number}
                         </h3>
-                        {session.is_completed && (
+                        {session.status === "Completed" && (
                           <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 rounded-full">
                             Completed
                           </span>
@@ -609,7 +615,7 @@ const LessonPlanning = () => {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  {!session.is_completed ? (
+                  {session.status !== "Completed" ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -636,7 +642,7 @@ const LessonPlanning = () => {
                         </>
                       )}
                     </button>
-                  ) : session.has_assessment ? (
+                  ) : session.assessment.length > 0 ? (
                     <div className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg ${
                       isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                     }`}>
@@ -1235,24 +1241,14 @@ const LessonPlanning = () => {
                   />
                 </div>
 
-                {/* Class Selection */}
+                {/* Class Info (Read-only) */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                    Class *
+                    Class
                   </label>
-                  <select
-                    value={assessmentConfig.class_id}
-                    onChange={(e) => setAssessmentConfig({ ...assessmentConfig, class_id: e.target.value })}
-                    disabled={creatingAssessment !== null}
-                    className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  >
-                    <option value="">Select class...</option>
-                    {user?.classes?.map((classItem) => (
-                      <option key={classItem._id} value={classItem._id}>
-                        {classItem.class_name} - {classItem.grade_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className={`w-full px-4 py-2.5 rounded-lg border ${isDarkMode ? "bg-gray-700 border-gray-600 text-gray-300" : "bg-gray-50 border-gray-300 text-gray-700"}`}>
+                    {selectedPlan ? `Assessment will be created for the lesson plan's class` : 'No class selected'}
+                  </div>
                 </div>
               </div>
 
@@ -1271,7 +1267,7 @@ const LessonPlanning = () => {
                 </button>
                 <button
                   onClick={handleCreateAssessment}
-                  disabled={creatingAssessment !== null || !assessmentConfig.opens_on || !assessmentConfig.due_date || !assessmentConfig.class_id}
+                  disabled={creatingAssessment !== null || !assessmentConfig.opens_on || !assessmentConfig.due_date}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
                 >
                   {creatingAssessment !== null ? (
