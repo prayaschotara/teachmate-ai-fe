@@ -1,6 +1,6 @@
 // Common API fetcher with public and private endpoints
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://teachmate-ai-be.onrender.com';
 
 interface FetcherOptions extends RequestInit {
   token?: string;
