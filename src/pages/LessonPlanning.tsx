@@ -28,9 +28,11 @@ import {
   getGrades,
   getSubjectsByGrade,
   getChaptersBySubjectAndGrade,
+  getClassesByGrade,
   type Grade,
   type Subject,
   type Chapter,
+  type Class,
 } from "../services/hierarchicalApi";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../stores/authStore";
@@ -44,8 +46,6 @@ const LessonPlanning = () => {
     try {
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString();
-      } else if (dateValue && typeof dateValue === 'object' && '$date' in dateValue) {
-        return new Date((dateValue as { $date: string }).$date).toLocaleDateString();
       } else {
         return new Date().toLocaleDateString();
       }
@@ -66,6 +66,7 @@ const LessonPlanning = () => {
   const [selectedGradeId, setSelectedGradeId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedChapterId, setSelectedChapterId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
   const [sessions, setSessions] = useState("3");
   const [sessionDuration, setSessionDuration] = useState("45");
 
@@ -73,12 +74,14 @@ const LessonPlanning = () => {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
 
   // Loading states
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isLoadingGrades, setIsLoadingGrades] = useState(false);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const [isLoadingChapters, setIsLoadingChapters] = useState(false);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [completingSession, setCompletingSession] = useState<number | null>(null);
   const [creatingAssessment, setCreatingAssessment] = useState<number | null>(null);
@@ -146,28 +149,36 @@ const LessonPlanning = () => {
     }
   };
 
-  // Load subjects when grade is selected
+  // Load subjects and classes when grade is selected
   useEffect(() => {
     if (!selectedGradeId) {
       setSubjects([]);
+      setClasses([]);
       setSelectedSubjectId("");
+      setSelectedClassId("");
       return;
     }
 
-    const loadSubjects = async () => {
+    const loadSubjectsAndClasses = async () => {
       setIsLoadingSubjects(true);
+      setIsLoadingClasses(true);
       try {
-        const subjectsData = await getSubjectsByGrade(selectedGradeId);
+        const [subjectsData, classesData] = await Promise.all([
+          getSubjectsByGrade(selectedGradeId),
+          getClassesByGrade(selectedGradeId)
+        ]);
         setSubjects(subjectsData);
+        setClasses(classesData);
       } catch (error) {
-        console.error("Failed to load subjects:", error);
-        toast.error("Failed to load subjects for selected grade");
+        console.error("Failed to load subjects and classes:", error);
+        toast.error("Failed to load subjects and classes for selected grade");
       } finally {
         setIsLoadingSubjects(false);
+        setIsLoadingClasses(false);
       }
     };
 
-    loadSubjects();
+    loadSubjectsAndClasses();
   }, [selectedGradeId]);
 
   // Load chapters when subject is selected
@@ -198,8 +209,8 @@ const LessonPlanning = () => {
   }, [selectedSubjectId, selectedGradeId]);
 
   const handleGeneratePlan = async () => {
-    if (!selectedGradeId || !selectedSubjectId || !selectedChapterId) {
-      toast.error("Please select grade, subject, and chapter");
+    if (!selectedGradeId || !selectedSubjectId || !selectedChapterId || !selectedClassId) {
+      toast.error("Please select grade, subject, chapter, and class");
       return;
     }
 
@@ -225,6 +236,7 @@ const LessonPlanning = () => {
         teacher_id: TEACHER_ID,
         grade_id: selectedGradeId,
         chapter_id: selectedChapterId,
+        class_id: selectedClassId,
       };
 
       const newPlan = await generateLessonPlan(request);
@@ -241,9 +253,9 @@ const LessonPlanning = () => {
         // If refresh fails, at least add the new plan to local state
         const normalizedPlan = {
           ...newPlan,
-          createdAt: newPlan.createdAt || { $date: new Date().toISOString() },
-          updatedAt: newPlan.updatedAt || { $date: new Date().toISOString() },
-          _id: newPlan._id || { $oid: Date.now().toString() }
+          createdAt: newPlan.createdAt || new Date().toISOString(),
+          updatedAt: newPlan.updatedAt || new Date().toISOString(),
+          _id: newPlan._id
         };
         setLessonPlans(prev => [normalizedPlan, ...prev]);
       }
@@ -261,10 +273,12 @@ const LessonPlanning = () => {
     setSelectedGradeId("");
     setSelectedSubjectId("");
     setSelectedChapterId("");
+    setSelectedClassId("");
     setSessions("3");
     setSessionDuration("45");
     setSubjects([]);
     setChapters([]);
+    setClasses([]);
   };
 
   const handleSessionClick = (session: SessionDetail) => {
@@ -830,6 +844,28 @@ const LessonPlanning = () => {
                     </select>
                   </div>
 
+                  {/* Class Selection */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Class *
+                    </label>
+                    <select
+                      value={selectedClassId}
+                      onChange={(e) => setSelectedClassId(e.target.value)}
+                      disabled={!selectedGradeId || isLoadingClasses || isGenerating}
+                      className={`w-full px-4 py-2.5 rounded-lg border ${inputClass} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option value="">
+                        {!selectedGradeId ? "Select grade first..." : isLoadingClasses ? "Loading classes..." : "Select class..."}
+                      </option>
+                      {classes.map((classItem) => (
+                        <option key={classItem.id} value={classItem.id}>
+                          {classItem.name} ({classItem.strength} students)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Sessions */}
                   <div>
                     <label className={`block text-sm font-medium mb-2 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -871,7 +907,7 @@ const LessonPlanning = () => {
               <div className="p-6 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleGeneratePlan}
-                  disabled={!selectedGradeId || !selectedSubjectId || !selectedChapterId || isGenerating}
+                  disabled={!selectedGradeId || !selectedSubjectId || !selectedChapterId || !selectedClassId || isGenerating}
                   className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg disabled:cursor-not-allowed"
                 >
                   {isGenerating ? (

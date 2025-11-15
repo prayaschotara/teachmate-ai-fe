@@ -83,6 +83,14 @@ export interface Chapter {
   chapter_number?: number;
 }
 
+export interface Class {
+  id: string;
+  name: string;
+  strength: number;
+  gradeId: string;
+  gradeName: string;
+}
+
 /**
  * Get all grades
  */
@@ -136,6 +144,37 @@ export async function getChaptersBySubjectAndGrade(subjectId: string, gradeId: s
   return [];
 }
 
+/**
+ * Get classes by grade ID
+ */
+export async function getClassesByGrade(gradeId: string): Promise<Class[]> {
+  const response = await privateFetcher<{ success: boolean; data: SubjectApiResponse[] }>(
+    `/api/subject/grade/${gradeId}`
+  );
+
+  if (response.success && Array.isArray(response.data)) {
+    // Extract unique classes from all subjects
+    const classesMap = new Map<string, Class>();
+    
+    response.data.forEach(subject => {
+      subject.classes?.forEach(classItem => {
+        if (classItem.class_id && !classesMap.has(classItem.class_id._id)) {
+          classesMap.set(classItem.class_id._id, {
+            id: classItem.class_id._id,
+            name: classItem.class_id.class_name,
+            strength: classItem.class_id.class_strength,
+            gradeId: classItem.class_id.grade_id,
+            gradeName: classItem.class_id.grade_name,
+          });
+        }
+      });
+    });
+    
+    return Array.from(classesMap.values());
+  }
+  return [];
+}
+
 // React Query hooks
 export function useGrades() {
   return useQuery({
@@ -157,5 +196,13 @@ export function useChaptersBySubjectAndGrade(subjectId: string | null, gradeId: 
     queryKey: ['chapters', subjectId, gradeId],
     queryFn: () => getChaptersBySubjectAndGrade(subjectId!, gradeId!),
     enabled: !!subjectId && !!gradeId,
+  });
+}
+
+export function useClassesByGrade(gradeId: string | null) {
+  return useQuery({
+    queryKey: ['classes', gradeId],
+    queryFn: () => getClassesByGrade(gradeId!),
+    enabled: !!gradeId,
   });
 }

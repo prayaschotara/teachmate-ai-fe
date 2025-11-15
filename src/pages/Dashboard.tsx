@@ -10,42 +10,51 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useThemeStore } from "../stores/themeStore";
+import { useAuthStore } from "../stores/authStore";
 import { ROUTES } from "../routes/routes.enum";
+import { useDashboardStats, useRecentActivities, useUpcomingTasks } from "../services/dashboardApi";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isDarkMode } = useThemeStore();
+  const { user } = useAuthStore();
 
-  const quickStats = [
+  // Fetch real data using React Query
+  const { data: dashboardStats, isLoading: statsLoading, error: statsError } = useDashboardStats(user?.id || null);
+  const { data: recentActivities, isLoading: activitiesLoading } = useRecentActivities(user?.id || null);
+  const { data: upcomingTasks, isLoading: tasksLoading } = useUpcomingTasks(user?.id || null);
+
+  // Generate quick stats from real data
+  const quickStats = dashboardStats ? [
     {
       title: "Active Lessons",
-      value: "12",
-      change: "+3 this week",
+      value: dashboardStats.activeLessons.toString(),
+      change: `${dashboardStats.weeklyProgress.lessonPlansCreated} created this week`,
       color: "blue",
       icon: GraduationCap,
     },
     {
       title: "Assessments",
-      value: "8",
-      change: "2 pending review",
+      value: dashboardStats.totalAssessments.toString(),
+      change: `${dashboardStats.pendingAssessments} pending review`,
       color: "green",
       icon: ClipboardList,
     },
     {
       title: "Student Progress",
-      value: "85%",
-      change: "+5% improvement",
+      value: `${dashboardStats.averageStudentProgress}%`,
+      change: "Average performance",
       color: "purple",
       icon: TrendingUp,
     },
     {
       title: "Content Items",
-      value: "156",
-      change: "+12 this month",
+      value: dashboardStats.contentItems.toString(),
+      change: "Total resources",
       color: "orange",
       icon: BookOpen,
     },
-  ];
+  ] : [];
 
   const quickActions = [
     {
@@ -78,50 +87,9 @@ const Dashboard = () => {
     },
   ];
 
-  const recentActivities = [
-    {
-      title: "Mathematics Quiz - Quadratic Equations",
-      type: "Assessment",
-      time: "2 hours ago",
-      status: "completed",
-    },
-    {
-      title: "Physics Lesson Plan - Newton's Laws",
-      type: "Lesson Plan",
-      time: "1 day ago",
-      status: "draft",
-    },
-    {
-      title: "Chemistry Lab Report Template",
-      type: "Content",
-      time: "2 days ago",
-      status: "published",
-    },
-    {
-      title: "Student Progress Review - Grade 10A",
-      type: "Report",
-      time: "3 days ago",
-      status: "completed",
-    },
-  ];
-
-  const upcomingTasks = [
-    {
-      title: "Review pending assessments",
-      dueDate: "Today",
-      priority: "high",
-    },
-    {
-      title: "Prepare lesson plan for tomorrow",
-      dueDate: "Tomorrow",
-      priority: "medium",
-    },
-    {
-      title: "Update student progress reports",
-      dueDate: "This week",
-      priority: "low",
-    },
-  ];
+  // Use real data or fallback to empty arrays
+  const activities = recentActivities || [];
+  const tasks = upcomingTasks || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -205,54 +173,76 @@ const Dashboard = () => {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {quickStats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={index}
-              className={`${cardClass} rounded-2xl border shadow-lg p-6`}
-            >
+        {statsLoading ? (
+          // Loading skeleton
+          Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className={`${cardClass} rounded-2xl border shadow-lg p-6 animate-pulse`}>
               <div className="flex items-center mb-4">
-                <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getColorClasses(
-                    stat.color
-                  )} flex items-center justify-center mr-4`}
-                >
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
+                <div className="w-12 h-12 rounded-xl bg-gray-300 mr-4"></div>
                 <div>
-                  <div
-                    className={`text-2xl font-bold ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {stat.value}
-                  </div>
-                  <div
-                    className={`text-sm ${
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    }`}
-                  >
-                    {stat.title}
-                  </div>
+                  <div className="h-8 bg-gray-300 rounded w-16 mb-2"></div>
+                  <div className="h-4 bg-gray-300 rounded w-20"></div>
                 </div>
               </div>
-              <div
-                className={`text-xs font-medium ${
-                  stat.color === "blue"
-                    ? "text-blue-600"
-                    : stat.color === "green"
-                    ? "text-green-600"
-                    : stat.color === "purple"
-                    ? "text-purple-600"
-                    : "text-orange-600"
-                }`}
-              >
-                {stat.change}
-              </div>
+              <div className="h-3 bg-gray-300 rounded w-24"></div>
             </div>
-          );
-        })}
+          ))
+        ) : statsError ? (
+          <div className={`${cardClass} rounded-2xl border shadow-lg p-6 col-span-full text-center`}>
+            <p className={`${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+              Failed to load dashboard statistics
+            </p>
+          </div>
+        ) : (
+          quickStats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={index}
+                className={`${cardClass} rounded-2xl border shadow-lg p-6`}
+              >
+                <div className="flex items-center mb-4">
+                  <div
+                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getColorClasses(
+                      stat.color
+                    )} flex items-center justify-center mr-4`}
+                  >
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div
+                      className={`text-2xl font-bold ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {stat.value}
+                    </div>
+                    <div
+                      className={`text-sm ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      {stat.title}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`text-xs font-medium ${
+                    stat.color === "blue"
+                      ? "text-blue-600"
+                      : stat.color === "green"
+                      ? "text-green-600"
+                      : stat.color === "purple"
+                      ? "text-purple-600"
+                      : "text-orange-600"
+                  }`}
+                >
+                  {stat.change}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -335,49 +325,68 @@ const Dashboard = () => {
             </button>
           </div>
           <div className="space-y-3">
-            {recentActivities.map((activity, index) => (
-              <div
-                key={index}
-                className={`flex items-center justify-between p-3 border ${
-                  isDarkMode ? "border-gray-700" : "border-gray-200"
-                } rounded-lg`}
-              >
-                <div className="flex-1">
-                  <h3
-                    className={`font-medium text-sm mb-1 ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {activity.title}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        isDarkMode
-                          ? "bg-gray-700 text-gray-300"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {activity.type}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(
-                        activity.status
-                      )}`}
-                    >
-                      {activity.status}
-                    </span>
+            {activitiesLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={`p-3 border ${isDarkMode ? "border-gray-700" : "border-gray-200"} rounded-lg animate-pulse`}>
+                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+                  <div className="flex gap-2">
+                    <div className="h-3 bg-gray-300 rounded w-16"></div>
+                    <div className="h-3 bg-gray-300 rounded w-12"></div>
                   </div>
                 </div>
-                <span
-                  className={`text-xs ${
-                    isDarkMode ? "text-gray-400" : "text-gray-600"
-                  }`}
-                >
-                  {activity.time}
-                </span>
+              ))
+            ) : activities.length === 0 ? (
+              <div className="text-center py-4">
+                <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  No recent activities
+                </p>
               </div>
-            ))}
+            ) : (
+              activities.map((activity, index) => (
+                <div
+                  key={activity._id || index}
+                  className={`flex items-center justify-between p-3 border ${
+                    isDarkMode ? "border-gray-700" : "border-gray-200"
+                  } rounded-lg`}
+                >
+                  <div className="flex-1">
+                    <h3
+                      className={`font-medium text-sm mb-1 ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {activity.title}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          isDarkMode
+                            ? "bg-gray-700 text-gray-300"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {activity.type}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(
+                          activity.status
+                        )}`}
+                      >
+                        {activity.status}
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs ${
+                      isDarkMode ? "text-gray-400" : "text-gray-600"
+                    }`}
+                  >
+                    {activity.time}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -391,38 +400,59 @@ const Dashboard = () => {
             Upcoming Tasks
           </h2>
           <div className="space-y-3">
-            {upcomingTasks.map((task, index) => (
-              <div
-                key={index}
-                className={`flex items-center justify-between p-3 border ${
-                  isDarkMode ? "border-gray-700" : "border-gray-200"
-                } rounded-lg`}
-              >
-                <div>
-                  <h3
-                    className={`font-medium text-sm mb-1 ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {task.title}
-                  </h3>
-                  <p
-                    className={`text-xs ${
-                      isDarkMode ? "text-gray-400" : "text-gray-600"
-                    }`}
-                  >
-                    Due: {task.dueDate}
-                  </p>
+            {tasksLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={`p-3 border ${isDarkMode ? "border-gray-700" : "border-gray-200"} rounded-lg animate-pulse`}>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="h-4 bg-gray-300 rounded w-32 mb-1"></div>
+                      <div className="h-3 bg-gray-300 rounded w-20"></div>
+                    </div>
+                    <div className="h-6 bg-gray-300 rounded w-12"></div>
+                  </div>
                 </div>
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(
-                    task.priority
-                  )}`}
-                >
-                  {task.priority}
-                </span>
+              ))
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-4">
+                <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  No upcoming tasks
+                </p>
               </div>
-            ))}
+            ) : (
+              tasks.map((task, index) => (
+                <div
+                  key={task._id || index}
+                  className={`flex items-center justify-between p-3 border ${
+                    isDarkMode ? "border-gray-700" : "border-gray-200"
+                  } rounded-lg`}
+                >
+                  <div>
+                    <h3
+                      className={`font-medium text-sm mb-1 ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {task.title}
+                    </h3>
+                    <p
+                      className={`text-xs ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      Due: {task.dueDate}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(
+                      task.priority
+                    )}`}
+                  >
+                    {task.priority}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -436,78 +466,83 @@ const Dashboard = () => {
             This Week's Progress
           </h2>
           <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  Lesson Plans Created
-                </span>
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  7/10
-                </span>
+            {statsLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="flex justify-between text-sm mb-2">
+                    <div className="h-4 bg-gray-300 rounded w-32"></div>
+                    <div className="h-4 bg-gray-300 rounded w-12"></div>
+                  </div>
+                  <div className={`w-full bg-gray-200 rounded-full h-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"}`}>
+                    <div className="bg-gray-400 h-2 rounded-full w-1/2"></div>
+                  </div>
+                </div>
+              ))
+            ) : dashboardStats ? (
+              <>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      Lesson Plans Created
+                    </span>
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      {dashboardStats.weeklyProgress.lessonPlansCreated}/{dashboardStats.weeklyProgress.totalLessonPlansTarget}
+                    </span>
+                  </div>
+                  <div className={`w-full bg-gray-200 rounded-full h-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"}`}>
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ 
+                        width: `${Math.min((dashboardStats.weeklyProgress.lessonPlansCreated / dashboardStats.weeklyProgress.totalLessonPlansTarget) * 100, 100)}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      Assessments Graded
+                    </span>
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      {dashboardStats.weeklyProgress.assessmentsGraded}/{dashboardStats.weeklyProgress.totalAssessmentsToGrade}
+                    </span>
+                  </div>
+                  <div className={`w-full bg-gray-200 rounded-full h-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"}`}>
+                    <div
+                      className="bg-green-600 h-2 rounded-full"
+                      style={{ 
+                        width: `${dashboardStats.weeklyProgress.totalAssessmentsToGrade > 0 ? Math.min((dashboardStats.weeklyProgress.assessmentsGraded / dashboardStats.weeklyProgress.totalAssessmentsToGrade) * 100, 100) : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      Parent Reports Sent
+                    </span>
+                    <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+                      {dashboardStats.weeklyProgress.parentReportsSent}/{dashboardStats.weeklyProgress.totalParentReports}
+                    </span>
+                  </div>
+                  <div className={`w-full bg-gray-200 rounded-full h-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"}`}>
+                    <div
+                      className="bg-orange-600 h-2 rounded-full"
+                      style={{ 
+                        width: `${dashboardStats.weeklyProgress.totalParentReports > 0 ? Math.min((dashboardStats.weeklyProgress.parentReportsSent / dashboardStats.weeklyProgress.totalParentReports) * 100, 100) : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  No progress data available
+                </p>
               </div>
-              <div
-                className={`w-full bg-gray-200 rounded-full h-2 ${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                }`}
-              >
-                <div
-                  className="bg-blue-600 h-2 rounded-full"
-                  style={{ width: "70%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  Assessments Graded
-                </span>
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  12/15
-                </span>
-              </div>
-              <div
-                className={`w-full bg-gray-200 rounded-full h-2 ${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                }`}
-              >
-                <div
-                  className="bg-green-600 h-2 rounded-full"
-                  style={{ width: "80%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  Parent Reports Sent
-                </span>
-                <span
-                  className={isDarkMode ? "text-gray-300" : "text-gray-700"}
-                >
-                  8/12
-                </span>
-              </div>
-              <div
-                className={`w-full bg-gray-200 rounded-full h-2 ${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                }`}
-              >
-                <div
-                  className="bg-orange-600 h-2 rounded-full"
-                  style={{ width: "67%" }}
-                ></div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

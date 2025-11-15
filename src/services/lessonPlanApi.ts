@@ -12,6 +12,7 @@ export interface LessonPlanRequest {
   subject_id: string;
   grade_id: string;
   chapter_id: string;
+  class_id: string; // Required class selection
 }
 
 export interface SimpleLessonPlanRequest {
@@ -80,17 +81,17 @@ export interface RecommendedVideo {
   duration: string;
   topic: string;
   source: string;
-  _id: { $oid: string };
+  _id:string ;
 }
 
 export interface LessonPlan {
-  _id: string | { $oid: string };
-  teacher_id: string | { $oid: string };
-  subject_id: string | { $oid: string };
+  _id: string ;
+  teacher_id:  string ;
+  subject_id:  string ;
   subject_name: string;
-  grade_id: string | { $oid: string };
+  grade_id:  string ;
   grade_name: string;
-  chapter_id: string | { $oid: string };
+  chapter_id:  string ;
   chapter_name: string;
   chapter_number: number;
   total_sessions: number;
@@ -102,8 +103,8 @@ export interface LessonPlan {
   learning_outcomes: string[];
   status: string;
   isActive: boolean;
-  createdAt: string | { $date: string };
-  updatedAt: string | { $date: string };
+  createdAt: string;
+  updatedAt: string;
   __v: number;
 }
 
@@ -131,13 +132,13 @@ export interface LessonPlanResponse {
   saved?: boolean;
   note?: string;
   // Direct lesson plan response
-  _id?: { $oid: string };
-  teacher_id?: { $oid: string };
-  subject_id?: { $oid: string };
+  _id?:  string ;
+  teacher_id?:  string ;
+  subject_id?:  string ;
   subject_name?: string;
-  grade_id?: { $oid: string };
+  grade_id?:  string ;
   grade_name?: string;
-  chapter_id?: { $oid: string };
+  chapter_id?: string ;
   chapter_name?: string;
   chapter_number?: number;
   total_sessions?: number;
@@ -149,8 +150,8 @@ export interface LessonPlanResponse {
   learning_outcomes?: string[];
   status?: string;
   isActive?: boolean;
-  createdAt?: { $date: string };
-  updatedAt?: { $date: string };
+  createdAt?: string;
+  updatedAt?: string;
   __v?: number;
 }
 

@@ -144,8 +144,6 @@ const Assessments = () => {
     try {
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString();
-      } else if (dateValue && typeof dateValue === 'object' && '$date' in dateValue) {
-        return new Date((dateValue as { $date: string }).$date).toLocaleDateString();
       } else {
         return new Date().toLocaleDateString();
       }

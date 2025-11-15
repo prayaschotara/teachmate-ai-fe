@@ -16,22 +16,22 @@ export function getDateString(date: string | { $date: string } | undefined): str
 
 // Assessment interfaces
 export interface Assessment {
-  _id: string | { $oid: string };
+  _id: string;
   title: string;
   subject: string;
   grade: string;
   questions: number;
   duration: number; // in minutes
   status: 'Published' | 'Draft';
-  createdAt: string | { $date: string };
-  updatedAt: string | { $date: string };
-  teacher_id: string | { $oid: string };
-  subject_id?: string | { $oid: string };
-  grade_id?: string | { $oid: string };
-  chapter_id?: string | { $oid: string };
+  createdAt: string;
+  updatedAt: string;
+  teacher_id: string;
+  subject_id?: string;
+  grade_id?: string;
+  chapter_id?: string;
   opens_on?: string;
   due_date?: string;
-  class_id?: string | { $oid: string };
+  class_id?: string;
 }
 
 export interface CreateAssessmentRequest {
@@ -116,7 +116,7 @@ export async function getAssessmentStats(teacherId: string): Promise<AssessmentS
     published: assessments.filter(a => a.status === 'Published').length,
     drafts: assessments.filter(a => a.status === 'Draft').length,
     thisMonth: assessments.filter(a => {
-      const createdDate = new Date(getDateString(a.createdAt));
+      const createdDate = new Date(a.createdAt);
       return createdDate >= thisMonth;
     }).length,
   };
