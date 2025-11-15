@@ -33,21 +33,6 @@ const navigationItems = [
     path: ROUTES.ASSESSMENTS,
     icon: ClipboardList,
   },
-  {
-    label: 'Student Progress',
-    path: ROUTES.STUDENT_PROGRESS,
-    icon: TrendingUp,
-  },
-  {
-    label: 'Assistant Chat',
-    path: ROUTES.ASSISTANT_CHAT,
-    icon: MessageCircle,
-  },
-  {
-    label: 'Parent Reports',
-    path: ROUTES.PARENT_REPORTS,
-    icon: FileText,
-  },
 ];
 
 const Sidebar = ({ open, onToggle }: SidebarProps) => {
